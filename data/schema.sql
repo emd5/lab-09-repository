@@ -34,3 +34,13 @@ CREATE TABLE IF NOT EXISTS movies (
   released_on CHAR(15),
   location_id INTEGER NOT NULL REFERENCES locations(id)
 );
+
+CREATE TABLE IF NOT EXISTS yelps(
+  id SERIAL PRIMARY KEY,
+  restaurant_name VARCHAR(255),
+  image_url VARCHAR(255),
+  price NUMERIC(5,2),
+  rating NUMERIC(3,1),
+  url VARCHAR(255),
+  location_id INTEGER NOT NULL REFERENCES locations(id)
+);

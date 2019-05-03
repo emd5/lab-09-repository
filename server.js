@@ -25,6 +25,7 @@ app.get('/location', getLocation);
 app.get('/weather', getWeather);
 app.get('/events', getEvents);
 app.get('/movies', getMovies);
+app.get('/yelp', getYelps);
 
 // Make sure the server is listening for requests
 app.listen(PORT, () => console.log(`Listening on ${PORT}`));
@@ -149,6 +150,25 @@ Movie.prototype ={
   }
 };
 
+function Yelp(yelp){
+  this.name = yelp.name;
+  this.image_url = 'https://s3-media3.fl.yelpcdn.com/bphoto/' + yelp.image_url;
+  this.price = yelp.price;
+  this.rating = yelp.rating;
+  this.url = yelp.url;
+}
+
+Yelp.tableName = 'yelps';
+Yelp.lookup = lookup;
+
+Yelp.prototype ={
+  save: function(location_id){
+    const SQL = `INSERT INTO ${this.tableName} (name, image_url, price, rating, url, location_id) VALUES ($1, $2, $3, $4, $5, $6)`;
+    const values = [this.name, this.image_url, this.price, this.rating, this.url, location_id];
+
+    client.query(SQL, values);
+  }
+};
 function getLocation(request, response) {
   Location.lookupLocation({
     tableName: Location.tableName,
@@ -228,7 +248,6 @@ function getEvents(request, response) {
 }
 
 function getMovies(request, response) {
-  // console.log('request.query.data.id------------> ' + request.query.data.id);
   Movie.lookup({
     tableName: Movie.tableName,
 
@@ -241,16 +260,39 @@ function getMovies(request, response) {
 
       superagent.get(url)
         .then(result => {
-          console.log('result.body.results ' + result.body.results);
           const movies = result.body.results.map(movieData => {
             const movie = new Movie(movieData);
-            console.log('request.query.data.id =>' + request.query.data.id );
-            console.log('movie===> ' + movie )
             movie.save(request.query.data.id);
             return movie;
           });
 
           response.send(movies);
+        })
+        .catch(error => handleError(error, response));
+    }
+  });
+}
+
+function getYelps(request, response) {
+  Yelp.lookup({
+    tableName: Yelp.tableName,
+
+    location: request.query.data.id,
+    cacheHit: function (result) {
+      response.send(result.rows);
+    },
+    cacheMiss: function () {
+      const url = `https://api.yelp.com/v3/businesses/search?location=${request.query.data.search_query}`;
+      superagent.get(url)
+        .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+        .then(result => {
+          const yelps = result.body.businesses.map(yelpData => {
+            const yelp = new Yelp(yelpData);
+            yelp.save(request.query.data.id);
+            return yelp;
+          });
+
+          response.send(yelps);
         })
         .catch(error => handleError(error, response));
     }
