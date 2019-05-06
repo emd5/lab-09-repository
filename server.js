@@ -53,7 +53,11 @@ function lookup(options) {
     .catch(error => handleError(error));
 }
 
-// Models
+/********************************************************
+                         Models
+ * **************************************************** */
+
+// Locations
 function Location(query, res) {
   this.tableName = 'locations';
   this.search_query = query;
@@ -90,6 +94,7 @@ Location.prototype = {
   }
 };
 
+// Weather
 function Weather(day) {
   this.tableName = 'weathers';
   this.forecast = day.summary;
@@ -108,6 +113,7 @@ Weather.prototype = {
   }
 };
 
+// Event
 function Event(event) {
   this.tableName = 'events';
   this.link = event.url;
@@ -128,12 +134,14 @@ Event.prototype = {
   }
 };
 
+
+// Movie
 function Movie(movie){
   this.tableName = 'movies';
   this.title = movie.title;
   this.overview = movie.overview;
   this.average_votes = movie.vote_average;
-  this.image_url = 'https://image.tmdb.org/t/p/w500/'+movie.poster_path;
+  this.image_url = 'https://image.tmdb.org/t/p/w500/'+ movie.poster_path;
   this.popularity = movie.popularity;
   this.released_on = new Date(movie.release_date).toString().slice(0,15);
 }
@@ -150,9 +158,11 @@ Movie.prototype ={
   }
 };
 
+
+// Yelp
 function Yelp(yelp){
   this.name = yelp.name;
-  this.image_url = 'https://s3-media3.fl.yelpcdn.com/bphoto/' + yelp.image_url;
+  this.image_url = yelp.image_url;
   this.price = yelp.price;
   this.rating = yelp.rating;
   this.url = yelp.url;
@@ -169,6 +179,11 @@ Yelp.prototype ={
     client.query(SQL, values);
   }
 };
+
+
+/********************************************************
+                  Helper Methods
+ * **************************************************** */
 function getLocation(request, response) {
   Location.lookupLocation({
     tableName: Location.tableName,
@@ -223,7 +238,7 @@ function getWeather(request, response) {
 function getEvents(request, response) {
   Event.lookup({
     tableName: Event.tableName,
-
+    
     location: request.query.data.id,
 
     cacheHit: function (result) {
@@ -250,13 +265,12 @@ function getEvents(request, response) {
 function getMovies(request, response) {
   Movie.lookup({
     tableName: Movie.tableName,
-
     location: request.query.data.id,
     cacheHit: function (result) {
       response.send(result.rows);
     },
     cacheMiss: function () {
-      const url = `https://api.themoviedb.org/3/movie/top_rated?api_key=${process.env.MOVIE_API_KEY}&language=en-US&page=1`;
+      const url = `https://api.themoviedb.org/3/search/movie?api_key=${MOVIE_API_KEY}&language=en-US&query=${request.query.data.search_query}&page=1&include_adult=false`;
 
       superagent.get(url)
         .then(result => {
