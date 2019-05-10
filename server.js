@@ -27,15 +27,17 @@ app.get('/events', getEvents);
 app.get('/movies', getMovies);
 app.get('/yelp', getYelps);
 
-// Make sure the server is listening for requests
-app.listen(PORT, () => console.log(`Listening on ${PORT}`));
 
 
-// Error handler
-function handleError(err, res) {
-  console.error(err);
-  if (res) res.status(500).send('Sorry, something went wrong');
-}
+// Timeouts for each Api
+let timeouts = {
+  weather: 150 * 1000,
+  events: 1500 * 1000,
+  movies: 15000 * 1000,
+  yelp: 15000 * 1000,
+};
+let wasStale = false;
+
 
 // Look for the results in the database
 function lookup(options) {
@@ -144,6 +146,7 @@ function Movie(movie){
   this.image_url = 'https://image.tmdb.org/t/p/w500/'+ movie.poster_path;
   this.popularity = movie.popularity;
   this.released_on = new Date(movie.release_date).toString().slice(0,15);
+  this.created_at = Date.now();
 }
 
 Movie.tableName = 'movies';
@@ -166,6 +169,7 @@ function Yelp(yelp){
   this.price = yelp.price;
   this.rating = yelp.rating;
   this.url = yelp.url;
+  this.created_at = Date.now();
 }
 
 Yelp.tableName = 'yelps';
@@ -238,7 +242,6 @@ function getWeather(request, response) {
 function getEvents(request, response) {
   Event.lookup({
     tableName: Event.tableName,
-    
     location: request.query.data.id,
 
     cacheHit: function (result) {
@@ -270,7 +273,7 @@ function getMovies(request, response) {
       response.send(result.rows);
     },
     cacheMiss: function () {
-      const url = `https://api.themoviedb.org/3/search/movie?api_key=${MOVIE_API_KEY}&language=en-US&query=${request.query.data.search_query}&page=1&include_adult=false`;
+      const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&language=en-US&query=${request.query.data.search_query}&page=1&include_adult=false`;
 
       superagent.get(url)
         .then(result => {
@@ -305,7 +308,6 @@ function getYelps(request, response) {
             yelp.save(request.query.data.id);
             return yelp;
           });
-
           response.send(yelps);
         })
         .catch(error => handleError(error, response));
@@ -313,4 +315,11 @@ function getYelps(request, response) {
   });
 }
 
+// Make sure the server is listening for requests
+app.listen(PORT, () => console.log(`Listening on ${PORT}`));
 
+// Error handler
+function handleError(err, res) {
+  console.error(err);
+  if (res) res.status(500).send('Sorry, something went wrong');
+}
